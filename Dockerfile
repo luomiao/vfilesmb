@@ -1,21 +1,33 @@
-FROM alpine:latest
+FROM photon
 MAINTAINER Miao Luo <miaol@vmware.com>
 
-RUN apk --no-cache --no-progress update && apk --no-cache --no-progress upgrade
-RUN apk --no-cache --no-progress add samba samba-common-tools supervisor
+# install required binary and libraries
+#ADD usr/ /
+#ADD usr/sbin/ /usr/sbin
+#ADD usr/bin/ /usr/bin
+#ADD usr/lib64/ /usr/lib64/
+ADD deps.tar.gz /
 
+# install prerequisites
+RUN tdnf install -y nfs-utils python-pip
+
+# Prepare paths
+RUN mkdir -p /etc/samba && \
+    mkdir -p /var/lib/samba/private && \
+    mkdir -p /var/log/samba && \
+    mkdir -p /run/samba
+
+# Prepare config file for samba
 COPY *.conf /etc/samba/
 
-# add a non-root user vfile with no password
-RUN adduser -D -H vfile
-
-# create a samba password for vfile user
+# Create user for vfile
+RUN useradd vfile
 RUN echo -e "vfile\nvfile" | smbpasswd -a -s vfile
+
+# Install supervisord
+RUN pip install supervisor
 
 # exposes samba's default ports
 EXPOSE 137/udp 138/udp 139 445
-
-# volume mapping
-VOLUME ["/etc/samba"]
 
 ENTRYPOINT ["supervisord", "-c", "/etc/samba/supervisord.conf"]
